@@ -8,10 +8,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ImGui directory
-set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/imgui)
+set(RESOURCES_DIR ${CMAKE_SOURCE_DIR}/resources)
+
+# ImGui directory
+set(IMGUI_DIR ${RESOURCES_DIR}/imgui)
 
 # GLFW directory
-set(GLFW_DIR ${CMAKE_SOURCE_DIR}/glfw)
+set(GLFW_DIR ${RESOURCES_DIR}/glfw)
 
 # Define sources
 file(GLOB_RECURSE SOURCES 
@@ -50,6 +53,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
+    ${RESOURCES_DIR}
     ${GLFW_INCLUDE_DIR}
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
