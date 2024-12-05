@@ -11,6 +11,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(RESOURCES_DIR ${CMAKE_SOURCE_DIR}/resources)
 
 # ImGui directory
+set(TINYFILEDIALOGS_DIR ${RESOURCES_DIR}/tinyfiledialogs)
+
+# ImGui directory
 set(IMGUI_DIR ${RESOURCES_DIR}/imgui)
 
 # GLFW directory
@@ -30,6 +33,7 @@ list(APPEND SOURCES
     ${IMGUI_DIR}/imgui_widgets.cpp
     ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
     ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    ${TINYFILEDIALOGS_DIR}/tinyfiledialogs.c
 )
 
 # Configuration for GLFW
@@ -53,7 +57,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${RESOURCES_DIR}
+    ${TINYFILEDIALOGS_DIR}
     ${GLFW_INCLUDE_DIR}
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
