@@ -1,28 +1,33 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Project name
 project(ReBit)
 
-# Set the C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ImGui directory
-set(RESOURCES_DIR ${CMAKE_SOURCE_DIR}/resources)
+# Source code directory
+set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/Source)
+
+# Third party code directory
+set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/ThirdParty)
+
+
+
+# Tiny File Dialogs directory
+set(TINYFILEDIALOGS_DIR ${THIRDPARTY_DIR}/tinyfiledialogs)
 
 # ImGui directory
-set(TINYFILEDIALOGS_DIR ${RESOURCES_DIR}/tinyfiledialogs)
-
-# ImGui directory
-set(IMGUI_DIR ${RESOURCES_DIR}/imgui)
+set(IMGUI_DIR ${THIRDPARTY_DIR}/imgui)
 
 # GLFW directory
-set(GLFW_DIR ${RESOURCES_DIR}/glfw)
+set(GLFW_DIR ${THIRDPARTY_DIR}/glfw)
+
+
 
 # Define sources
 file(GLOB_RECURSE SOURCES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/source_files/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/source_files/*.h"
+    "${SOURCE_DIR}/*.cpp"
+    "${SOURCE_DIR}/*.h"
 )
 
 list(APPEND SOURCES
@@ -36,6 +41,8 @@ list(APPEND SOURCES
     ${TINYFILEDIALOGS_DIR}/tinyfiledialogs.c
 )
 
+
+
 # Configuration for GLFW
 set(GLFW_INCLUDE_DIR ${GLFW_DIR}/include)
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -44,7 +51,6 @@ else()
     set(GLFW_LIB_DIR ${GLFW_DIR}/lib-vc2010-32)
 endif()
 
-# Link GLFW library
 set(PLATFORM_LIBS
     ${GLFW_LIB_DIR}/glfw3.lib
     gdi32
@@ -52,16 +58,18 @@ set(PLATFORM_LIBS
     imm32
 )
 
+
+
 # Define the executable
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
+    ${SOURCE_DIR}
     ${TINYFILEDIALOGS_DIR}
     ${GLFW_INCLUDE_DIR}
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
-    ${CMAKE_CURRENT_SOURCE_DIR}/source_files
 )
 
 # Link libraries
