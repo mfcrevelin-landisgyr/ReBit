@@ -28,83 +28,43 @@ public:
     }
 
     bool Create() override {
-        ImGui::StyleColorsLight();
+        ImGui::StyleColorsDark();
 
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.Fonts->AddFontFromFileTTF("JetBrainsMonoNL-Regular.ttf", 18.0f);
 
-        strncpy_s(project_path, project_path.string().c_str(), sizeof(project_path));
-
-        PopulateDirectoryList();
+        SetProjectPath("C:\\Users\\crevelim\\Desktop");
 
         return true;
     }
 
     bool Update() override {
 
-        ProcessInput();
+        ProcessInputs();
 
-        RenderMainMenuBar();
+        ShowMainMenuBar();
+        ShowFileWindows();
         ShowProjectPannel();
-
+        ShowPopups();
         ManageFiles();
-
-        // CumputeLayout();
-
-        RenderFileWindows();
 
         return true;
     }
 
 private:
 
-    void ProcessInput() {
-        ImGuiWindow* focused_window = ImGui::GetCurrentContext()->NavWindow;
-
-        if (show_project_pannel && focused_window == ImGui::FindWindowByName("Project Panel")){
-            if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+    void ProcessInputs() {
+        if (show_project_pannel){
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) && !selected_files.empty()) {
+                std::cout << "Enter" << std::endl;
                 for (const auto& selected_path : selected_files)
-                    to_open.push(selected_path);
+                    to_open.insert(selected_path);
                 selected_files.clear();
             }
         }
 
         if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O))
                 BrowseDialog();
-    }
-
-    void CumputeLayout() {
-        default_dock_id = dockspace_id;
-        if (display_directory_panel){
-            ImGuiID directory_panel_id = ImGui::FindWindowByName("Directory Panel")->ID;
-
-            bool panel_docked_main = false;
-            bool panel_docked_child = false;
-
-            for (ImGuiWindow* window : dockspace_node->Windows) {
-                if (panel_docked_main){
-                    ImGuiID left_child = 0, right_child = 0;
-                    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, &left_child, &right_child);
-                    ImGui::DockBuilderDockWindow("Directory Panel", left_child);
-                    default_dock_id = right_child;  
-                    return;
-                }
-                panel_docked_main |= window->ID == directory_panel_id;
-            }
-
-            if (dockspace_node->ChildNodes[1]) { // If it has Child[1], then it has Child[0]
-                
-                for (ImGuiWindow* window : dockspace_node->ChildNodes[1]->Windows) {
-                    if (panel_docked_child) {
-                        default_dock_id = dockspace_node->ChildNodes[0]->ID;
-                        return;
-                    }
-                    panel_docked_child |= window->ID == directory_panel_id;
-                }
-
-                default_dock_id = dockspace_node->ChildNodes[1]->ID;
-            }
-        }
     }
 
     void ManageFiles() {
@@ -122,7 +82,7 @@ private:
 
 private:
 
-    void RenderMainMenuBar() {
+    void ShowMainMenuBar() {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("Save")) { /* Handle save */ }
@@ -147,15 +107,13 @@ private:
 
     void ShowProjectPannel() {
         static fs::path last_clicked_file;
-        static float last_click_time = 0.0f;
-        constexpr float double_click_dt = 0.3f;
+        static double last_click_time = 0.0;
+        constexpr double double_click_dt = 0.3;
 
-        if (ImGui::Begin("Project Panel", &show_project_pannel)) {
+        if (show_project_pannel) {
+            ImGui::Begin("Project Panel", &show_project_pannel, ImGuiWindowFlags_NoCollapse);
 
-            ImGui::BeginChild("ScrollArea", ImGui::GetContentRegionAvail() * 0.95f, ImGuiChildFlags_None, ImGuiWindowFlags_None);
-
-
-                for (const auto& path : project_files) {
+                for (const auto& [path,table_file] : project_files) {
                     bool is_selected = selected_files.contains(path);
 
                     if (ImGui::Selectable(path.filename().string().c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
@@ -168,26 +126,24 @@ private:
                             selected_files.clear();
                             selected_files.insert(path);
 
-                            float current_time = ImGui::GetTime();
+                            double current_time = ImGui::GetTime();
                             if (path == last_clicked_file && (current_time - last_click_time) < double_click_dt) {
-                                to_open.push(path);
+                                to_open.insert(path);
                                 selected_files.clear();
                             }
 
+                            last_clicked_file = path;
+                            last_click_time = current_time;
                         }
-
-                        last_clicked_file = path;
-                        last_click_time = current_time;
                     }
                 }
 
-            ImGui::EndChild();
-
-        ImGui::End();
+            ImGui::End();
         }
+
     }
 
-    void RenderFileWindows(){
+    void ShowFileWindows(){
 
         std::set<fs::path> to_close;
         for (const auto& file_path : opened_files) {
@@ -207,16 +163,45 @@ private:
             opened_files.erase(file_path);
     }
 
+    void ShowPopups() {
+        for (size_t i = 0; i < popups.size(); ) {
+            Popup& popup = popups[i];
+
+            ImGui::OpenPopup(popup.title.c_str());
+            
+            if (ImGui::BeginPopupModal(popup.title.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::TextWrapped("%s", popup.message.c_str());
+                
+                for (auto it = popup.buttons.begin(); it != popup.buttons.end(); ++it) {
+                    auto& [label, action] = *it;
+                    if (ImGui::Button(label.c_str())) {
+                        action(); // Call the action
+                        ImGui::CloseCurrentPopup(); // Close the popup
+                    }
+                    // Add buttons on the same line if not the last button
+                    if (std::next(it) != popup.buttons.end()) {
+                        ImGui::SameLine();
+                    }
+                }
+                ImGui::EndPopup();
+            }
+
+            if (!ImGui::IsPopupOpen(popup.title.c_str())) {
+                popups.erase(popups.begin() + i);
+            } else {
+                ++i;
+            }
+        }
+    }
+
+
 private:
 
     void BrowseDialog() {
         if (!browsing_dialog){
             browsing_dialog=true;
             std::thread([this]() {
-                const char* selected_path = tinyfd_selectFolderDialog(
-                    "Select a folder",
-                    project_path.string().c_str()
-                );
+                const char* selected_path = tinyfd_selectFolderDialog("Select a folder",project_path.string().c_str());
 
                 if (selected_path != NULL && fs::is_directory(selected_path))
                     SetProjectPath(selected_path);
@@ -227,87 +212,70 @@ private:
     }
 
     void SetProjectPath(const fs::path new_path) {
-
-        if (!HasWRPermission(new_path)) {
-            ImGui::OpenPopup("Permission Error");
-            if (ImGui::BeginPopupModal("Permission Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("The chosen path could not be opened due to lack of permissions.");
-                if (ImGui::Button("OK"))
-                    ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
-            }
-            return;
-        }
-
-        if (!modified_files.empty()) {
-            ImGui::OpenPopup("Unsaved Changes");
-            if (ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("You have unsaved changes. Do you want to save them before changing the project path?");
-                if (ImGui::Button("Save")) {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Don't Save")) {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel")) {
-                    ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                    return;
-                }
-                ImGui::EndPopup();
-            }
-        }
-
         if (fs::exists(new_path) && fs::is_directory(new_path)) {
-            backwards_directory_history.push(project_path);
-            project_path = new_path;
-            while(!forwards_directory_history.empty())
-                forwards_directory_history.pop();
-            PopulateDirectoryList();
-        }
 
-        strncpy_s(project_path, project_path.string().c_str(), sizeof(project_path));
+            if (!HasWRPermission(new_path)) {
+                const std::string t = "Permission Error";
+                const std::string m = "The chosen path could not be opened due to lack of permissions.";
+                const std::vector<std::pair<std::string, std::function<void()>>>& b = {
+                    std::make_pair("OK", []() {})
+                };
+
+                popups.emplace_back(t,m,b);
+                return;
+            }
+
+            if (!modified_files.empty()) {
+                const std::string t = "Unsaved Changes";
+                const std::string m = "You have unsaved changes. Do you want to save them before changing the project directory?";
+                const std::vector<std::pair<std::string, std::function<void()>>>& b = {
+                    std::make_pair("Save", [this, new_path]() { 
+                        /* Save logic */ 
+                        project_path = new_path;
+                        PopulateDirectoryList();
+                    }),
+                    std::make_pair("Don't Save", [this, new_path]() {
+                        project_path = new_path;
+                        PopulateDirectoryList();
+                    }),
+                    std::make_pair("Cancel", []() {})
+                };
+
+                popups.emplace_back(t,m,b);
+                return;
+            }
+
+            project_path = new_path;
+            PopulateDirectoryList();
+
+        } else {
+            const std::string t = "Invalid Path";
+            const std::string m = "The chosen path does not exist or is not a directory.";
+            const std::vector<std::pair<std::string, std::function<void()>>>& b = {
+                std::make_pair("OK", []() {})
+            };
+            popups.emplace_back(t,m,b);
+        }
     }
 
     void PopulateDirectoryList() {
 
         project_files.clear();
 
-        for (auto& entry : fs::directory_iterator(project_path)) {
+        for (const auto& entry : fs::directory_iterator(project_path)) {
             const auto& path = entry.path();
 
             if (path.filename().string().starts_with(".") || fs::is_directory(path))
                 continue;
 
-            TableFile* table_file = ParseFile(path);
+            TableFile* table_file = (TableFile*)1;//ParseFile(path);
 
             if (table_file != nullptr){
                 project_files[path] = nullptr;
-                delete table_file;
+                // delete table_file;
             }
 
-
         }
-    }
-
-    TableFile* ParseFile(const fs::path& path) {
-
-        std::ifstream file(filePath, std::ios::binary);
-        if (!file.is_open())
-            return nullptr;
-
-        char ch;
-        while (file.get(ch)) {
-            if (!isprint(static_cast<unsigned char>(ch)) && !isspace(static_cast<unsigned char>(ch))) {
-                file.close();
-                return nullptr;
-            }
-        }
-
-        file.close();
-        return new TableFile(path);
     }
 
     bool HasWRPermission(const fs::path& path) {
@@ -319,22 +287,41 @@ private:
     }
 
 private:
+    struct Popup {
+        std::string title;
+        std::string message;
+        std::vector<std::pair<std::string, std::function<void()>>> buttons;
+        
+        Popup(
+            const std::string& t,
+            const std::string& m,
+            const std::vector<std::pair<std::string, std::function<void()>>>& b
+        ) : title(t), message(m), buttons(b) {}
+    };
+
+    std::vector<Popup> popups;
+
+private:
     std::set<fs::path> opened_files;
     std::unordered_set<fs::path> to_open;
     std::unordered_set<fs::path> to_close;
     std::unordered_set<fs::path> modified_files = {"C:"};
+    bool renderable_script = false;
 
 private:
-    char project_path[512];
-    fs::path project_path = "C:\\Users\\crevelim\\Desktop";
+    fs::path project_path;
     std::unordered_map<fs::path,TableFile*> project_files;
     std::unordered_set<fs::path> selected_files;
     bool browsing_dialog = false;
 
 private:
+    ImGuiWindow* project_pannel_ptr = nullptr;
     bool show_project_pannel = false;
+    ImGuiWindow* error_pannel_ptr = nullptr;
     bool show_error_pannel = false;
+    ImGuiWindow* log_pannel_ptr = nullptr;
     bool show_log_pannel = false;
+    ImGuiWindow* modules_pannel_ptr = nullptr;
     bool show_modules_pannel = false;
 
 private:

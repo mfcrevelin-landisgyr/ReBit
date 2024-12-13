@@ -22,6 +22,14 @@
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
 
+// ImVec2 operator*(const ImVec2& vec, float scalar) {
+//     return ImVec2(vec.x * scalar, vec.y * scalar);
+// }
+
+// ImVec2 operator*(float scalar, const ImVec2& vec) {
+//     return vec * scalar;
+// }
+
 namespace ImGui {
 
     class Wrapper {
