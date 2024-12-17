@@ -1,13 +1,12 @@
 #ifndef TABLE_FILE_H
 #define TABLE_FILE_H
 
-#include <boost/text/transcode_iterator.hpp>
-#include <boost/text/transcode_view.hpp>
-
 namespace fs = std::filesystem;
 
-struct TableFile {
-	TableFile(const fs::path& path):file_path(path){}
+struct FileHandler {
+	FileHandler(const fs::path& file_path, const fs::path& output_directory):
+		file_path(file_path),output_directory(output_directory) {}
+
 	void save(){}
 
 
@@ -28,8 +27,9 @@ struct TableFile {
 	    file.close();
 	    return true;
 	}
-	fs::path file_path;
-private:
 
+private:
+	const fs::path& output_directory;
+	fs::path file_path;
 };
 #endif // TABLE_FILE_H

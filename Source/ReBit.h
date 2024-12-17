@@ -4,6 +4,11 @@
 #include "ImguiWrapper.h"
 #include "tinyfiledialogs.h"
 
+#include <pybind11/pybind11.h>
+#include <pybind11/embed.h>
+#include <pybind11/eval.h>
+#include <pybind11/stl.h>
+
 #include <string_view>
 #include <filesystem>
 #include <cstdint>
@@ -18,8 +23,9 @@
 #include <unordered_map>
 
 namespace fs = std::filesystem;
+namespace py = pybind11;
 
-#include "TableFile.h"
+#include "FileHandler.h"
 
 class ReBit : public ImGui::Wrapper {
 public:
@@ -34,13 +40,23 @@ public:
         io.Fonts->AddFontFromFileTTF("JetBrainsMonoNL-Regular.ttf", 18.0f);
 
         SetProjectPath("C:\\Users\\crevelim\\Desktop");
+        
+        std::cout << "Hash of 'Project Pannel': 0x" 
+                  << std::hex << std::hash<std::string>{}("Project Pannel") << std::endl;
+        std::cout << "Hash of 'Error Pannel': 0x" 
+                  << std::hex << std::hash<std::string>{}("Error Pannel") << std::endl;
+        std::cout << "Hash of 'Log Pannel': 0x" 
+                  << std::hex << std::hash<std::string>{}("Log Pannel") << std::endl;
+        std::cout << "Hash of 'Modules Pannel': 0x" 
+                  << std::hex << std::hash<std::string>{}("Modules Pannel") << std::endl;
+
 
         return true;
     }
 
     bool Update() override {
 
-        ProcessInputs();
+        ProcessPeripheralInputs();
 
         ShowMainMenuBar();
         ShowFileWindows();
@@ -53,18 +69,55 @@ public:
 
 private:
 
-    void ProcessInputs() {
-        if (show_project_pannel){
+    void ProcessPeripheralInputs() {
+        std::size_t window_name_hash = 0x0000000000000000;
+        ImGuiWindow* current_window = nullptr;
+
+        if (ImGui::IsWindowFocused())
+            current_window = ImGui::GetCurrentWindow();
+        if (current_window){
+            window_name_hash = std::hash<std::string>{}(current_window->Name);
+            std::cout << current_window->Name << "          \r";
+        }
+        // std::cout << "Hash: 0x" 
+        //           << std::hex << window_name_hash << "      ";
+
+        switch(window_name_hash) {
+        case 0x31cefb5e341f0714: // Project Pannel
+            
             if (ImGui::IsKeyPressed(ImGuiKey_Enter) && !selected_files.empty()) {
-                std::cout << "Enter" << std::endl;
                 for (const auto& selected_path : selected_files)
                     to_open.insert(selected_path);
                 selected_files.clear();
             }
+
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                ImGui::OpenPopup("RightClickMenu");
+
+            break;
+        case 0xbfc58a6f1067a1ed: // Error Pannel
+            break;
+        case 0x2aefb7fa9d57a9ed: // Log Pannel
+            break;
+        case 0x58e72e8c5c91d068: // Modules Pannel
+            break;
+        }
+        
+        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O)){
+            if (!browsing_dialog){
+                browsing_dialog=true;
+                std::thread([this]() {
+                    const char* selected_path = tinyfd_selectFolderDialog("Select a folder",project_path.string().c_str());
+
+                    if (selected_path != NULL && fs::is_directory(selected_path))
+                        SetProjectPath(selected_path);
+
+                    browsing_dialog = false;
+                }).detach();
+            }
         }
 
-        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O))
-                BrowseDialog();
+
     }
 
     void ManageFiles() {
@@ -165,7 +218,7 @@ private:
 
     void ShowPopups() {
         for (size_t i = 0; i < popups.size(); ) {
-            Popup& popup = popups[i];
+            PopupHandler& popup = popups[i];
 
             ImGui::OpenPopup(popup.title.c_str());
             
@@ -176,45 +229,45 @@ private:
                     auto& [label, action] = *it;
                     if (ImGui::Button(label.c_str())) {
                         action(); // Call the action
-                        ImGui::CloseCurrentPopup(); // Close the popup
+                        ImGui::CloseCurrentPopup();
                     }
-                    // Add buttons on the same line if not the last button
-                    if (std::next(it) != popup.buttons.end()) {
+                    if (std::next(it) != popup.buttons.end())
                         ImGui::SameLine();
-                    }
                 }
                 ImGui::EndPopup();
             }
 
-            if (!ImGui::IsPopupOpen(popup.title.c_str())) {
+            if (!ImGui::IsPopupOpen(popup.title.c_str()))
                 popups.erase(popups.begin() + i);
-            } else {
+            else
                 ++i;
+        }
+
+        if (ImGui::BeginPopup("RightClickMenu")) {
+            if (ImGui::MenuItem("Option 1"))
+            {
+                // Action for Option 1
             }
+            if (ImGui::MenuItem("Option 2"))
+            {
+                // Action for Option 2
+            }
+            if (ImGui::MenuItem("Option 3"))
+            {
+                // Action for Option 3
+            }
+
+            ImGui::EndPopup();
         }
     }
 
 
 private:
 
-    void BrowseDialog() {
-        if (!browsing_dialog){
-            browsing_dialog=true;
-            std::thread([this]() {
-                const char* selected_path = tinyfd_selectFolderDialog("Select a folder",project_path.string().c_str());
-
-                if (selected_path != NULL && fs::is_directory(selected_path))
-                    SetProjectPath(selected_path);
-
-                browsing_dialog = false;
-            }).detach();
-        }
-    }
-
     void SetProjectPath(const fs::path new_path) {
         if (fs::exists(new_path) && fs::is_directory(new_path)) {
 
-            if (!HasWRPermission(new_path)) {
+            if (!HasRWPermission(new_path)) {
                 const std::string t = "Permission Error";
                 const std::string m = "The chosen path could not be opened due to lack of permissions.";
                 const std::vector<std::pair<std::string, std::function<void()>>>& b = {
@@ -268,7 +321,7 @@ private:
             if (path.filename().string().starts_with(".") || fs::is_directory(path))
                 continue;
 
-            TableFile* table_file = (TableFile*)1;//ParseFile(path);
+            FileHandler* table_file = (FileHandler*)1;//ParseFile(path);
 
             if (table_file != nullptr){
                 project_files[path] = nullptr;
@@ -278,7 +331,7 @@ private:
         }
     }
 
-    bool HasWRPermission(const fs::path& path) {
+    bool HasRWPermission(const fs::path& path) {
         auto perms = fs::status(path).permissions();
         constexpr auto read_write_perms = 
             fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read |
@@ -287,41 +340,40 @@ private:
     }
 
 private:
-    struct Popup {
+    struct PopupHandler {
         std::string title;
         std::string message;
         std::vector<std::pair<std::string, std::function<void()>>> buttons;
         
-        Popup(
+        PopupHandler(
             const std::string& t,
             const std::string& m,
             const std::vector<std::pair<std::string, std::function<void()>>>& b
         ) : title(t), message(m), buttons(b) {}
     };
 
-    std::vector<Popup> popups;
+    std::vector<PopupHandler> popups;
+
+private:
 
 private:
     std::set<fs::path> opened_files;
     std::unordered_set<fs::path> to_open;
     std::unordered_set<fs::path> to_close;
-    std::unordered_set<fs::path> modified_files = {"C:"};
+    std::unordered_set<fs::path> modified_files;
     bool renderable_script = false;
 
 private:
     fs::path project_path;
-    std::unordered_map<fs::path,TableFile*> project_files;
+    fs::path output_directory;
+    std::unordered_map<fs::path,FileHandler*> project_files;
     std::unordered_set<fs::path> selected_files;
     bool browsing_dialog = false;
 
 private:
-    ImGuiWindow* project_pannel_ptr = nullptr;
     bool show_project_pannel = false;
-    ImGuiWindow* error_pannel_ptr = nullptr;
     bool show_error_pannel = false;
-    ImGuiWindow* log_pannel_ptr = nullptr;
     bool show_log_pannel = false;
-    ImGuiWindow* modules_pannel_ptr = nullptr;
     bool show_modules_pannel = false;
 
 private:

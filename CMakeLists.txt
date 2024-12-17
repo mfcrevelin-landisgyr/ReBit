@@ -11,7 +11,14 @@ set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/Source)
 # Third party code directory
 set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/ThirdParty)
 
+# Set Python paths
+set(DPYTHON_INCLUDE_DIR "C:/Program Files/Python313/include")
+set(DPYTHON_LIBRARY_RELEASE "C:/Program Files/Python313/libs/python313.lib")
 
+# Include pybind11
+set(PYBIND11_DIR "${THIRDPARTY_DIR}/pybind11/include")
+add_subdirectory(${THIRDPARTY_DIR}/pybind11)
+# find_package(pybind11 CONFIG REQUIRED)
 
 # Tiny File Dialogs directory
 set(TINYFILEDIALOGS_DIR ${THIRDPARTY_DIR}/tinyfiledialogs)
@@ -65,6 +72,10 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
+#     pybind11::embed
+#     pybind11::pybind11
+    ${DPYTHON_INCLUDE_DIR}
+    ${PYBIND11_INCLUDE_DIR}
     ${SOURCE_DIR}
     ${TINYFILEDIALOGS_DIR}
     ${GLFW_INCLUDE_DIR}
@@ -73,7 +84,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 # Link libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE ${PLATFORM_LIBS})
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    ${PLATFORM_LIBS}
+    ${DPYTHON_LIBRARY_RELEASE}
+)
 
 # Remove ALL_BUILD and ZERO_CHECK targets from the generated Visual Studio project
 if(MSVC)
