@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <fstream>
 #include <vector>
+#include <chrono>
+#include <queue>
 #include <string>
 #include <thread>
 #include <stack>
@@ -40,23 +42,10 @@ public:
         io.Fonts->AddFontFromFileTTF("JetBrainsMonoNL-Regular.ttf", 18.0f);
 
         SetProjectPath("C:\\Users\\crevelim\\Desktop");
-        
-        std::cout << "Hash of 'Project Pannel': 0x" 
-                  << std::hex << std::hash<std::string>{}("Project Pannel") << std::endl;
-        std::cout << "Hash of 'Error Pannel': 0x" 
-                  << std::hex << std::hash<std::string>{}("Error Pannel") << std::endl;
-        std::cout << "Hash of 'Log Pannel': 0x" 
-                  << std::hex << std::hash<std::string>{}("Log Pannel") << std::endl;
-        std::cout << "Hash of 'Modules Pannel': 0x" 
-                  << std::hex << std::hash<std::string>{}("Modules Pannel") << std::endl;
-
-
         return true;
     }
 
     bool Update() override {
-
-        ProcessPeripheralInputs();
 
         ShowMainMenuBar();
         ShowFileWindows();
@@ -64,44 +53,43 @@ public:
         ShowPopups();
         ManageFiles();
 
+        ProcessPeripheralInputs();
+
+        current_window = nullptr;
         return true;
     }
 
 private:
 
     void ProcessPeripheralInputs() {
-        std::size_t window_name_hash = 0x0000000000000000;
-        ImGuiWindow* current_window = nullptr;
 
-        if (ImGui::IsWindowFocused())
-            current_window = ImGui::GetCurrentWindow();
         if (current_window){
-            window_name_hash = std::hash<std::string>{}(current_window->Name);
-            std::cout << current_window->Name << "          \r";
-        }
-        // std::cout << "Hash: 0x" 
-        //           << std::hex << window_name_hash << "      ";
 
-        switch(window_name_hash) {
-        case 0x31cefb5e341f0714: // Project Pannel
-            
-            if (ImGui::IsKeyPressed(ImGuiKey_Enter) && !selected_files.empty()) {
-                for (const auto& selected_path : selected_files)
-                    to_open.insert(selected_path);
-                selected_files.clear();
+            // std::cout << "ID': 0x"
+            //     << std::hex << std::hash<std::string>{}(current_window->Name) << std::endl;
+
+            switch(std::hash<std::string>{}(current_window->Name)) {
+            case 0xff72950c934d8a08: // Project Panel
+                
+                if (ImGui::IsKeyPressed(ImGuiKey_Enter) && !selected_files.empty()) {
+                    for (const auto& selected_path : selected_files)
+                        to_open.insert(selected_path);
+                    selected_files.clear();
+                }
+
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                    ImGui::OpenPopup("RightClickMenu");
+
+                break;
+            case 0xbfc58a6f1067a1ed: // Error Panel
+                break;
+            case 0x2aefb7fa9d57a9ed: // Log Panel
+                break;
+            case 0x58e72e8c5c91d068: // Modules Panel
+                break;
             }
-
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-                ImGui::OpenPopup("RightClickMenu");
-
-            break;
-        case 0xbfc58a6f1067a1ed: // Error Pannel
-            break;
-        case 0x2aefb7fa9d57a9ed: // Log Pannel
-            break;
-        case 0x58e72e8c5c91d068: // Modules Pannel
-            break;
         }
+
         
         if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O)){
             if (!browsing_dialog){
@@ -116,7 +104,6 @@ private:
                 }).detach();
             }
         }
-
 
     }
 
@@ -165,6 +152,11 @@ private:
 
         if (show_project_pannel) {
             ImGui::Begin("Project Panel", &show_project_pannel, ImGuiWindowFlags_NoCollapse);
+                if (ImGui::Button("Reload Directory"))
+                    PopulateDirectoryFilesList();
+                
+                if (ImGui::IsWindowFocused())
+                    current_window = ImGui::GetCurrentWindow();
 
                 for (const auto& [path,table_file] : project_files) {
                     bool is_selected = selected_files.contains(path);
@@ -269,7 +261,7 @@ private:
 
             if (!HasRWPermission(new_path)) {
                 const std::string t = "Permission Error";
-                const std::string m = "The chosen path could not be opened due to lack of permissions.";
+                const std::string m = "The chosen path could not be opened. \nMissing RW permissions.";
                 const std::vector<std::pair<std::string, std::function<void()>>>& b = {
                     std::make_pair("OK", []() {})
                 };
@@ -280,16 +272,16 @@ private:
 
             if (!modified_files.empty()) {
                 const std::string t = "Unsaved Changes";
-                const std::string m = "You have unsaved changes. Do you want to save them before changing the project directory?";
+                const std::string m = "You have unsaved changes. Do you want to save them before switching the project directories?";
                 const std::vector<std::pair<std::string, std::function<void()>>>& b = {
-                    std::make_pair("Save", [this, new_path]() { 
+                    std::make_pair("Save & Switch", [this, new_path]() { 
                         /* Save logic */ 
                         project_path = new_path;
-                        PopulateDirectoryList();
+                        PopulateDirectoryFilesList();
                     }),
                     std::make_pair("Don't Save", [this, new_path]() {
                         project_path = new_path;
-                        PopulateDirectoryList();
+                        PopulateDirectoryFilesList();
                     }),
                     std::make_pair("Cancel", []() {})
                 };
@@ -299,7 +291,7 @@ private:
             }
 
             project_path = new_path;
-            PopulateDirectoryList();
+            PopulateDirectoryFilesList();
 
         } else {
             const std::string t = "Invalid Path";
@@ -311,7 +303,7 @@ private:
         }
     }
 
-    void PopulateDirectoryList() {
+    void PopulateDirectoryFilesList() {
 
         project_files.clear();
 
@@ -371,10 +363,20 @@ private:
     bool browsing_dialog = false;
 
 private:
+    ImGuiWindow* current_window = nullptr;
+
     bool show_project_pannel = false;
+    ImGuiWindow* project_pannel_ptr = nullptr;
+
     bool show_error_pannel = false;
+    ImGuiWindow* error_pannel_ptr = nullptr;
+
     bool show_log_pannel = false;
+    ImGuiWindow* log_pannel_ptr = nullptr;
+
     bool show_modules_pannel = false;
+    ImGuiWindow* modules_pannel_ptr = nullptr;
+
 
 private:
     ImGuiID default_dock_id;
