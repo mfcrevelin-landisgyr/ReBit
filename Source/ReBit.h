@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <cstdint>
 #include <fstream>
+#include <memory>
 #include <vector>
 #include <chrono>
 #include <queue>
@@ -36,7 +37,7 @@ public:
     }
 
     bool Create() override {
-        ImGui::StyleColorsDark();
+        ImGui::StyleColorsLight();
 
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.Fonts->AddFontFromFileTTF("JetBrainsMonoNL-Regular.ttf", 18.0f);
@@ -91,8 +92,8 @@ private:
         }
 
         
-        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O)){
-            if (!browsing_dialog){
+        if (ImGui::GetIO().KeyCtrl) {
+            if (ImGui::IsKeyPressed(ImGuiKey_O) && !browsing_dialog){
                 browsing_dialog=true;
                 std::thread([this]() {
                     const char* selected_path = tinyfd_selectFolderDialog("Select a folder",project_path.string().c_str());
@@ -103,6 +104,8 @@ private:
                     browsing_dialog = false;
                 }).detach();
             }
+            if (ImGui::IsKeyPressed(ImGuiKey_R))
+                PopulateDirectoryFilesList();
         }
 
     }
@@ -152,13 +155,11 @@ private:
 
         if (show_project_pannel) {
             ImGui::Begin("Project Panel", &show_project_pannel, ImGuiWindowFlags_NoCollapse);
-                if (ImGui::Button("Reload Directory"))
-                    PopulateDirectoryFilesList();
                 
                 if (ImGui::IsWindowFocused())
                     current_window = ImGui::GetCurrentWindow();
 
-                for (const auto& [path,table_file] : project_files) {
+                for (const auto& [path,file_handler] : project_files) {
                     bool is_selected = selected_files.contains(path);
 
                     if (ImGui::Selectable(path.filename().string().c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
@@ -313,12 +314,7 @@ private:
             if (path.filename().string().starts_with(".") || fs::is_directory(path))
                 continue;
 
-            FileHandler* table_file = (FileHandler*)1;//ParseFile(path);
-
-            if (table_file != nullptr){
-                project_files[path] = nullptr;
-                // delete table_file;
-            }
+            project_files[path] = std::make_unique<FileHandler>(path, output_directory);
 
         }
     }
@@ -358,7 +354,7 @@ private:
 private:
     fs::path project_path;
     fs::path output_directory;
-    std::unordered_map<fs::path,FileHandler*> project_files;
+    std::unordered_map<fs::path,std::unique_ptr<FileHandler>> project_files;
     std::unordered_set<fs::path> selected_files;
     bool browsing_dialog = false;
 
@@ -381,5 +377,42 @@ private:
 private:
     ImGuiID default_dock_id;
 };
+
+
+
+    // void CumputeLayout() {
+    //     default_dock_id = dockspace_id;
+    //     if (show_project_pannel){
+    //         ImGuiWindow* directory_panel_ptr = ImGui::FindWindowByName("Project Panel");
+    //         ImGuiID directory_panel_id = directory_panel_ptr->ID;
+
+    //         bool panel_docked_main = false;
+    //         bool panel_docked_child = false;
+
+    //         for (ImGuiWindow* window : dockspace_node->Windows) {
+    //             if (panel_docked_main){
+    //                 ImGuiID left_child = 0, right_child = 0;
+    //                 ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, &left_child, &right_child);
+    //                 ImGui::DockBuilderDockWindow("Directory Panel", left_child);
+    //                 default_dock_id = right_child;  
+    //                 return;
+    //             }
+    //             panel_docked_main |= window->ID == directory_panel_id;
+    //         }
+
+    //         if (dockspace_node->ChildNodes[1]) { // If it has Child[1], then it has Child[0]
+                
+    //             for (ImGuiWindow* window : dockspace_node->ChildNodes[1]->Windows) {
+    //                 if (panel_docked_child) {
+    //                     default_dock_id = dockspace_node->ChildNodes[0]->ID;
+    //                     return;
+    //                 }
+    //                 panel_docked_child |= window->ID == directory_panel_id;
+    //             }
+
+    //             default_dock_id = dockspace_node->ChildNodes[1]->ID;
+    //         }
+    //     }
+    // }
 
 #endif // REBIT_H
