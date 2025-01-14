@@ -42,7 +42,6 @@ public:
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.Fonts->AddFontFromFileTTF("JetBrainsMonoNL-Regular.ttf", 18.0f);
 
-        SetProjectPath("C:\\Users\\crevelim\\Desktop");
         return true;
     }
 
@@ -66,9 +65,6 @@ private:
 
         if (current_window){
 
-            // std::cout << "ID': 0x"
-            //     << std::hex << std::hash<std::string>{}(current_window->Name) << std::endl;
-
             switch(std::hash<std::string>{}(current_window->Name)) {
             case 0xff72950c934d8a08: // Project Panel
                 
@@ -77,9 +73,6 @@ private:
                         to_open.insert(selected_path);
                     selected_files.clear();
                 }
-
-                if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-                    ImGui::OpenPopup("RightClickMenu");
 
                 break;
             case 0xbfc58a6f1067a1ed: // Error Panel
@@ -100,6 +93,17 @@ private:
 
                     if (selected_path != NULL && fs::is_directory(selected_path))
                         SetProjectPath(selected_path);
+                    else {
+                        const std::string t = "Error";
+                        const std::string m = "The chosen path must be a directory.";
+                        const std::vector<std::pair<std::string, std::function<void()>>>& b = {
+                            std::make_pair("OK", []() {})
+                        };
+
+                        popups.emplace_back(t,m,b);
+                    }
+
+
 
                     browsing_dialog = false;
                 }).detach();
@@ -127,16 +131,17 @@ private:
 
     void ShowMainMenuBar() {
         if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Save")) { /* Handle save */ }
-                if (ImGui::MenuItem("Save All")) { /* Handle save all */ }
+            if (ImGui::MenuItem("Saver")) { /* Handle save */ }
+            if (ImGui::BeginMenu("Project")) {
+                if (ImGui::MenuItem("Save All")) {}
+                if (ImGui::MenuItem("Render All")) {}
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Project Panel", nullptr, &show_project_pannel);
-                ImGui::MenuItem("Error Panel", nullptr, &show_error_pannel);
-                ImGui::MenuItem("Log Panel", nullptr, &show_log_pannel);
-                ImGui::MenuItem("Modules Panel", nullptr, &show_modules_pannel);
+                ImGui::MenuItem("Project", nullptr, &show_project_pannel);
+                ImGui::MenuItem("Error", nullptr, &show_error_pannel);
+                ImGui::MenuItem("Log", nullptr, &show_log_pannel);
+                ImGui::MenuItem("Modules", nullptr, &show_modules_pannel);
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Render")) {
@@ -154,7 +159,7 @@ private:
         constexpr double double_click_dt = 0.3;
 
         if (show_project_pannel) {
-            ImGui::Begin("Project Panel", &show_project_pannel, ImGuiWindowFlags_NoCollapse);
+            ImGui::Begin("Project", &show_project_pannel, ImGuiWindowFlags_NoCollapse);
                 
                 if (ImGui::IsWindowFocused())
                     current_window = ImGui::GetCurrentWindow();
@@ -234,23 +239,6 @@ private:
                 popups.erase(popups.begin() + i);
             else
                 ++i;
-        }
-
-        if (ImGui::BeginPopup("RightClickMenu")) {
-            if (ImGui::MenuItem("Option 1"))
-            {
-                // Action for Option 1
-            }
-            if (ImGui::MenuItem("Option 2"))
-            {
-                // Action for Option 2
-            }
-            if (ImGui::MenuItem("Option 3"))
-            {
-                // Action for Option 3
-            }
-
-            ImGui::EndPopup();
         }
     }
 
@@ -383,7 +371,7 @@ private:
     // void CumputeLayout() {
     //     default_dock_id = dockspace_id;
     //     if (show_project_pannel){
-    //         ImGuiWindow* directory_panel_ptr = ImGui::FindWindowByName("Project Panel");
+    //         ImGuiWindow* directory_panel_ptr = ImGui::FindWindowByName("Project");
     //         ImGuiID directory_panel_id = directory_panel_ptr->ID;
 
     //         bool panel_docked_main = false;
@@ -393,7 +381,7 @@ private:
     //             if (panel_docked_main){
     //                 ImGuiID left_child = 0, right_child = 0;
     //                 ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, &left_child, &right_child);
-    //                 ImGui::DockBuilderDockWindow("Directory Panel", left_child);
+    //                 ImGui::DockBuilderDockWindow("Directory", left_child);
     //                 default_dock_id = right_child;  
     //                 return;
     //             }
