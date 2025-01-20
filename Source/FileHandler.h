@@ -24,13 +24,13 @@ public:
 			std::scoped_lock<std::mutex> lock(operation_mutex);
 
 			try{
-				loaded = false;
-				errors.clear();
+				load_errors.clear();
+				syntax_errors.clear();
 
 				std::ifstream file(file_path, std::ios::ate);
 
 				if (!file.is_open()) {
-					errors.emplace_back("Failed to open file",std::system_category().message(errno));
+					load_errors.emplace_back("Failed to open file",std::system_category().message(errno));
 					return;
 				}
 
@@ -43,7 +43,7 @@ public:
 				file.close();
 
 				if (error_number) {
-					errors.emplace_back("Failed to read file",std::system_category().message(errno));
+					load_errors.emplace_back("Failed to read file",std::system_category().message(errno));
 					return;
 				}
 
@@ -76,9 +76,8 @@ public:
 				file_content_size = lside+1; // +1 to "append" an extra 0x00 byte to make it a null-terminated string
 				file_content = std::string_view(file_content_buffer.get(),file_content_size);
 
-				loaded = true;
 			} catch (const std::runtime_error& e) {
-				errors.emplace_back("Runtime Error during Load",static_cast<std::string>(e.what()));
+				load_errors.emplace_back("Runtime Error during load",static_cast<std::string>(e.what()));
 			}
 		});
 		t.detach();
@@ -87,10 +86,18 @@ public:
 	void save(){}
 
 private:
-	bool loaded = false;
-
+	void parse() {
+		std::thread t([&]() {
+			
+			} catch (const std::runtime_error& e) {
+				load_errors.emplace_back("Runtime Error during parse",static_cast<std::string>(e.what()));
+			}
+		});
+		t.detach();
+	}
 private:
-	std::list<FileHandlerError> errors;
+	std::list<FileHandlerError> load_errors;
+	std::list<FileHandlerError> syntax_errors;
 
 private:
 	size_t file_content_size;
@@ -104,7 +111,6 @@ private:
 	
 private:
 	std::mutex operation_mutex;
-	uint8_t user_state = 0;
 
 };
 #endif // TABLE_FILE_H

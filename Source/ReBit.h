@@ -94,6 +94,7 @@ private:
                     if (selected_path != NULL && fs::is_directory(selected_path))
                         SetProjectPath(selected_path);
                     else {
+
                         const std::string t = "Error";
                         const std::string m = "The chosen path must be a directory.";
                         const std::vector<std::pair<std::string, std::function<void()>>>& b = {
@@ -131,7 +132,6 @@ private:
 
     void ShowMainMenuBar() {
         if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::MenuItem("Saver")) { /* Handle save */ }
             if (ImGui::BeginMenu("Project")) {
                 if (ImGui::MenuItem("Save All")) {}
                 if (ImGui::MenuItem("Render All")) {}
@@ -160,6 +160,11 @@ private:
 
         if (show_project_pannel) {
             ImGui::Begin("Project", &show_project_pannel, ImGuiWindowFlags_NoCollapse);
+            
+            if (ImGui::BeginMenuBar()) {
+                if (ImGui::MenuItem("Saver")) {}
+                ImGui::EndMenuBar();
+            }
                 
                 if (ImGui::IsWindowFocused())
                     current_window = ImGui::GetCurrentWindow();
